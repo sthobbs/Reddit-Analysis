@@ -63,12 +63,15 @@ paste0("https://www.reddit.com/r/",lot[[7]]$subreddit[6],"/",substring(lot[[7]]$
 # the front page so that the lower (left) tail is not inflated. It is still
 # possible that some of the posts that were included (which went off the
 # front page a while ago) will come back to the front page and bias the result.
-# However, this probably isn't the case, so the approximation is reasonable. 
+# However, this probably isn't the case, so the approximation is reasonable.
 
-# Start time --------------------------- end time --------------- current time
+# EDIT: I forgot to remove the initial post, changing code now.
+
+# Start collecting data ----- Start time ------------ end time ----- current time
 # in other words we look at all posts from start time to end time, then from
 # end time to current time we continue to track posts that were in the first
-# interval but we don't look at any new ones. This elimiates almost all if not
+# interval but we don't look at any new ones. We also posts that were in the
+# Top at the start of data collections. This elimiates almost all if not
 # all of the bias from our density estimate.
 
 # Picking the appropriate time window for data we should use
@@ -86,13 +89,29 @@ while (!any(time_posts%in%current_posts)){
     time_window_endpoint=time_window_endpoint+1
 }
 time_window_endpoint=time_window_endpoint-1
+
+start_posts<-NULL # 'names' of all post currently on the front page
+for (i in 1:25){
+    start_posts[i]<-lot[[i]]$name[1]
+}
+time_window_startpoint<-nrow(lot[[1]])
+time_posts<-0
+# Look backwards until I first encounter one of the starting top posts
+while (!any(time_posts%in%start_posts)){
+    for (i in 1:25){
+        time_posts[i]<-lot[[i]]$name[time_window_startpoint]
+    }
+    time_window_startpoint=time_window_startpoint-1
+}
+time_window_startpoint=time_window_startpoint+1
+
 # Now we have a time window that ends right before the first appearence of the
 # current top posts.
 
 # Determine the unique names in the time window #and look at the frequencies
 p1_post_names_int<-NULL
 for (i in 1:25){
-    p1_post_names_int<-unique(c(p1_post_names_int,lot[[i]]$name[1:time_window_endpoint]))
+    p1_post_names_int<-unique(c(p1_post_names_int,lot[[i]]$name[time_window_startpoint:time_window_endpoint]))
 }
 
 # Collect names from all time which are in the time interval
@@ -331,7 +350,7 @@ names(post_tracking_df)<-c("time",post_names)
 post_tracking_df_long<-melt(post_tracking_df, id="time")  # Convert to long format
 
 # Plot
-ggplot(data=post_tracking_df_long,aes(x=time/6, y=value, colour=variable),alpha=0.8)+
+ggplot(data=post_tracking_df_long,aes(x=time/6, y=value, colour=variable,alpha=0.8))+
     geom_line()+
     ylim(100,1)+
     xlim((-sum(rowSums(post_tracking_df[,2:(n+1)]!=100)>0)-5)/6,0) +
